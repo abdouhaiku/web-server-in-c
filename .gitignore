@@ -1,0 +1,51 @@
+# Build output
+cmake-build-*/
+build/
+out/
+
+# Compiled object files
+*.o
+*.obj
+*.lo
+*.slo
+
+# Compiled binaries
+*.exe
+*.out
+*.app
+webserver
+utilities
+
+# Debug symbols
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Libraries
+*.a
+*.la
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+Makefile
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
