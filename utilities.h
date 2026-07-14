@@ -38,4 +38,6 @@ typedef struct {
 int parse_request(char *raw, request_t *req);
 
 void send_response(int client_socket, response_t *response);
+
+void *handle_client_thread(void* arg);
 #endif //WEB_SERVER_IN_C_UTILITIES_H

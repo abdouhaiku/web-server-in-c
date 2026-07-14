@@ -8,8 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include <sys/socket.h>
 
+#define SIZE 10000
 
 void getFileURL(char *route, char *fileURL)
 {
@@ -127,6 +129,8 @@ char* build_headers(response_t *response) {
     char date[100];
     getTimeString(date);
     strcat(buffer,date);
+    // Add connection:close header
+    strcat(buffer, "Connection:close\r\n");
     strcat(buffer, "\r\n\r\n");
     return buffer;
 }
@@ -150,15 +154,16 @@ void send_response(int clientSocket, response_t *response) {
     char* bodyBuffer = responseBuffer + header_size;
     memcpy(bodyBuffer, response->body, response->body_length);
     send(clientSocket, responseBuffer, header_size + response->body_length, 0);
-    free(responseBuffer); 
+    free(responseBuffer);
 }
 
 
 
 void getTimeString(char* timeBuff) {
-    time_t t = time(NULL);
+    const time_t t = time(NULL);
     //convert time to local structure
-    struct tm *tm_info = localtime(&t);
+    struct tm tm_info_storage;
+    const struct tm *tm_info = localtime_r(&t, &tm_info_storage);
 
     //print the formatted string in timebuff
     printf("Current Date and Time: %02d/%02d/%04d %02d:%02d:%02d\n",
@@ -169,4 +174,68 @@ void getTimeString(char* timeBuff) {
            tm_info->tm_mday, tm_info->tm_mon + 1, tm_info->tm_year + 1900,
            tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
 
+}
+
+
+void handle_client(int client_fd) {
+    char *raw = (char *) calloc(SIZE + 1, sizeof(char));
+    read(client_fd, raw, SIZE);
+
+    request_t req;
+    if (parse_request(raw, &req) != 0) {
+        char error_text[] = "Error while processing your request";
+        size_t body_length = strlen(error_text);
+        response_t response = {
+            404, "Bad Request", "text/html",error_text, body_length
+        };
+        send_response(client_fd, &response);
+        close(client_fd);
+        free(raw);
+        fprintf(stderr, "Malformed request from client %d\n", client_fd);
+        return;
+    }
+
+    printf("%s %s\n", req.method, req.path);
+
+    char fileURL[300];
+    getFileURL(req.path, fileURL);
+
+    FILE *file = fopen(fileURL, "r");
+
+    if (!file) {
+        char error_text[] = "Error while processing your request";
+        int body_length = strlen(error_text);
+        response_t response = {
+            404, "Not found", "text/html",error_text, body_length
+        };
+        send_response(client_fd, &response);
+        close(client_fd);
+    } else {
+        response_t response;
+        char mimeType[32];
+        getMimeType(fileURL, mimeType);
+        response.content_type = mimeType;
+        // Calculate the size of the file
+        fseek(file, 0, SEEK_END);
+        long fsize = ftell(file);
+        // Equivalent to fseek(stream, 0L, SEEK_SET)
+        rewind(file);
+        response.body_length = fsize;
+        // Read content of the file
+        response.body = malloc(response.body_length * sizeof(char));
+        fread(response.body, response.body_length, 1, file);
+        response.statusCode = 200;
+        response.status_text = "OK";
+        send_response(client_fd, &response);
+        free(response.body);
+        fclose(file);
+    }
+
+    free(raw);
+}
+void *handle_client_thread(void *arg) {
+    int client_fd = *(int*)arg;
+    free(arg);
+    handle_client(client_fd);
+    return NULL;
 }

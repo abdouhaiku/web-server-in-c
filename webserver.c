@@ -13,12 +13,13 @@
 
 #include <signal.h> // signal handling
 #include <sys/errno.h>
+#include <pthread.h>
+
 
 #include "utilities.h"
 
 #define PORT 8081
 #define BACKLOG 10
-#define SIZE 10000
 
 
 int main(void) {
@@ -56,64 +57,24 @@ int main(void) {
     printf("\nServer is listening on http://%s:%s/\n\n", hostBuffer, serviceBuffer);
 
     while (1) {
+
+        // TODO 1 : Wrap all of this in a function that can be called by a thread
         int clientSocket = accept(serverSocket, NULL, NULL);
         if (clientSocket == -1) {
             perror("Can't establish connection with the client");
-            return errno;
-        }
-
-        char *raw = (char *) calloc(SIZE + 1, sizeof(char));
-        read(clientSocket, raw, SIZE);
-
-        request_t req;
-        if (parse_request(raw, &req) != 0) {
-            char error_text[] = "Error while processing your request";
-            int body_length = strlen(error_text);
-            response_t response = {
-                404, "Bad Request", "text/html",error_text, body_length
-            };
-            send_response(clientSocket, &response);
-            close(clientSocket);
-            free(raw);
             continue;
         }
 
-        printf("%s %s\n", req.method, req.path);
+        pthread_t thread;
+        int *client_ptr = malloc(sizeof(int));
+        *client_ptr = clientSocket;
+        int pthread_ws = pthread_create(&thread, NULL, handle_client_thread, client_ptr);
+        if (pthread_ws  != 0) {
+            fprintf(stderr, "Cannot create thread: %s\n", strerror(pthread_ws));
+            continue;
 
-        char fileURL[300];
-        getFileURL(req.path, fileURL);
-
-        FILE *file = fopen(fileURL, "r");
-
-        if (!file) {
-            char error_text[] = "Error while processing your request";
-            int body_length = strlen(error_text);
-            response_t response = {
-                404, "Not found", "text/html",error_text, body_length
-            };
-            send_response(clientSocket, &response);
-            close(clientSocket);
-        } else {
-            response_t response;
-            char mimeType[32];
-            getMimeType(fileURL, mimeType);
-            response.content_type = mimeType;
-            // Calculate the size of the file
-            fseek(file, 0, SEEK_END);
-            long fsize = ftell(file);
-            // Equivalent to fseek(stream, 0L, SEEK_SET)
-            rewind(file);
-            response.body_length = fsize;
-            // Read content of the file
-            response.body = malloc(response.body_length * sizeof(char));
-            fread(response.body, response.body_length, 1, file);
-            response.statusCode = 200;
-            response.status_text = "OK";
-            send_response(clientSocket, &response);
-            free(response.body);
-            fclose(file);
         }
+        pthread_detach(thread);
 
-        free(raw);
     }
 }

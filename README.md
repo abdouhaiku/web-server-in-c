@@ -19,12 +19,3 @@ cmake --build build
 
 The server listens on `http://127.0.0.1:8081/`.
 
-## Known limitations
-
-- **Single-threaded and blocking** — one connection is handled fully (accept → read → respond → close) before the next is accepted. A slow or idle (keep-alive) client connection stalls every other pending request — this is why a page reload can sometimes show as "pending" in the browser.
-- No `Connection: close` header is sent, so HTTP/1.1 clients may attempt to keep connections alive.
-- `fread`'s return value isn't checked for short reads or I/O errors.
-
-## Next steps
-
-- Add concurrency (thread- or process-per-connection, or a `select`/`poll`/`epoll`-based event loop) so one stalled client can't block others.
