@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/socket.h>
 
 
 void getFileURL(char *route, char *fileURL)
@@ -112,6 +113,48 @@ int parse_request(char *raw, request_t *req)
     return 0;
 }
 
+char* build_headers(response_t *response) {
+    char* buffer = malloc(1000 * sizeof(char));
+    char status_line[100];
+    sprintf(status_line, "HTTP/1.1 %d %s\r\n", response->statusCode, response->status_text);
+    strcpy(buffer, status_line);
+    char content_type_line[100];
+    sprintf(content_type_line, "Content-Type: %s\r\n", response->content_type);
+    strcat(buffer, content_type_line);
+    char content_length[100];
+    sprintf(content_length, "Content-Length: %lu\r\n", response->body_length);
+    strcat(buffer, content_length);
+    char date[100];
+    getTimeString(date);
+    strcat(buffer,date);
+    strcat(buffer, "\r\n\r\n");
+    return buffer;
+}
+
+/*
+HTTP/1.1 200 OK\r\n
+Content-Type: text/html\r\n
+Content-Length: 1234\r\n
+Date: Mon, 14 Jul 2026 10:00:00 GMT\r\n
+\r\n
+<body bytes go here — no \r\n line-ending rules apply inside the body>
+*/
+
+void send_response(int clientSocket, response_t *response) {
+    char* headers = build_headers(response);
+    int header_size = strlen(headers);
+    char *responseBuffer = malloc(strlen(headers) + response->body_length);
+    memcpy(responseBuffer, headers, header_size);
+    free(headers);
+    // pointer arithmetic to point to the begining to the position of the resource
+    char* bodyBuffer = responseBuffer + header_size;
+    memcpy(bodyBuffer, response->body, response->body_length);
+    send(clientSocket, responseBuffer, header_size + response->body_length, 0);
+    free(responseBuffer); 
+}
+
+
+
 void getTimeString(char* timeBuff) {
     time_t t = time(NULL);
     //convert time to local structure
@@ -122,7 +165,7 @@ void getTimeString(char* timeBuff) {
            tm_info->tm_mday, tm_info->tm_mon + 1, tm_info->tm_year + 1900,
            tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
 
-    sprintf(timeBuff,"Current Date and Time: %02d/%02d/%04d %02d:%02d:%02d",
+    sprintf(timeBuff,"Date: %02d/%02d/%04d %02d:%02d:%02d",
            tm_info->tm_mday, tm_info->tm_mon + 1, tm_info->tm_year + 1900,
            tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
 

@@ -67,8 +67,12 @@ int main(void) {
 
         request_t req;
         if (parse_request(raw, &req) != 0) {
-            const char response[] = "HTTP/1.1 400 Bad Request\r\n\n";
-            send(clientSocket, response, sizeof(response), 0);
+            char error_text[] = "Error while processing your request";
+            int body_length = strlen(error_text);
+            response_t response = {
+                404, "Bad Request", "text/html",error_text, body_length
+            };
+            send_response(clientSocket, &response);
             close(clientSocket);
             free(raw);
             continue;
@@ -82,39 +86,32 @@ int main(void) {
         FILE *file = fopen(fileURL, "r");
 
         if (!file) {
-            const char response[] = "HTTP/1.1 404 Not Found\r\n\n";
-            send(clientSocket, response, sizeof(response), 0);
+            char error_text[] = "Error while processing your request";
+            int body_length = strlen(error_text);
+            response_t response = {
+                404, "Not found", "text/html",error_text, body_length
+            };
+            send_response(clientSocket, &response);
             close(clientSocket);
         } else {
-            char resHeader[SIZE];
+            response_t response;
             char mimeType[32];
-
             getMimeType(fileURL, mimeType);
-
-            char timeBuff[100];
-            getTimeString(timeBuff);
-
-            sprintf(resHeader, "HTTP/1.1 200 OK\r\nDate: %s\r\nContent-Type: %s\r\n\n", timeBuff, mimeType);
-            int headerSize = strlen(resHeader);
-
-            printf(" %s", mimeType);
-
+            response.content_type = mimeType;
             // Calculate the size of the file
             fseek(file, 0, SEEK_END);
             long fsize = ftell(file);
             // Equivalent to fseek(stream, 0L, SEEK_SET)
             rewind(file);
-
-            // Allocate a new response buffer whose size is the sum of the header and size of the resource
-            char *resBuffer = (char *) malloc(fsize + headerSize);
-            strcpy(resBuffer, resHeader);
-            // pointer arithmetic to point to the begining to the position of the resource
-            char *fileBuffer = resBuffer + headerSize;
-            fread(fileBuffer, fsize, 1, file);
-            send(clientSocket, resBuffer, fsize + headerSize, 0);
-            free(resBuffer);
+            response.body_length = fsize;
+            // Read content of the file
+            response.body = malloc(response.body_length * sizeof(char));
+            fread(response.body, response.body_length, 1, file);
+            response.statusCode = 200;
+            response.status_text = "OK";
+            send_response(clientSocket, &response);
+            free(response.body);
             fclose(file);
-            close(clientSocket);
         }
 
         free(raw);
