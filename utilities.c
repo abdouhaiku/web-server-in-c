@@ -2,6 +2,8 @@
 // Created by Abdou on 11/07/2026.
 //
 
+#include "utilities.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,6 +60,57 @@ void getMimeType(char *file, char *mime)
         strcpy(mime, "text/html");
 }
 
+
+int parse_request(char *raw, request_t *req)
+{
+    memset(req, 0, sizeof(*req));
+
+    char *line_end = strstr(raw, "\r\n");
+    if (!line_end)
+        return -1;
+
+    if (sscanf(raw, "%7s %255s %15s", req->method, req->path, req->version) != 3)
+        return -1;
+
+    char *cursor = line_end + 2;
+
+    // Header lines, terminated by a blank line ("\r\n\r\n")
+    while (cursor[0] != '\r' || cursor[1] != '\n')
+    {
+        char *next_line = strstr(cursor, "\r\n");
+        if (!next_line)
+            return -1;
+
+        char *colon = memchr(cursor, ':', next_line - cursor);
+        if (colon && req->header_count < 32)
+        {
+            header_t *h = &req->headers[req->header_count];
+
+            size_t name_len = colon - cursor;
+            if (name_len >= sizeof(h->name))
+                name_len = sizeof(h->name) - 1;
+            memcpy(h->name, cursor, name_len);
+            h->name[name_len] = '\0';
+
+            char *value_start = colon + 1;
+            while (value_start < next_line && *value_start == ' ')
+                value_start++;
+
+            size_t value_len = next_line - value_start;
+            if (value_len >= sizeof(h->value))
+                value_len = sizeof(h->value) - 1;
+            memcpy(h->value, value_start, value_len);
+            h->value[value_len] = '\0';
+
+            req->header_count++;
+        }
+
+        cursor = next_line + 2;
+    }
+
+    req->body = cursor + 2;
+    return 0;
+}
 
 void getTimeString(char* timeBuff) {
     time_t t = time(NULL);

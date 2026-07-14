@@ -56,23 +56,28 @@ int main(void) {
     printf("\nServer is listening on http://%s:%s/\n\n", hostBuffer, serviceBuffer);
 
     while (1) {
-        char *request = (char *) malloc(SIZE * sizeof(char));
-        char method[10], route[100];
         int clientSocket = accept(serverSocket, NULL, NULL);
-        read(clientSocket, request, SIZE);
-        // scan the input to get the first 10 chars for the method, and the next 100 char for the route
         if (clientSocket == -1) {
             perror("Can't establish connection with the client");
-            free(request);
             return errno;
         }
-        sscanf(request, "%s %s", method, route);
-        printf("%s %s\n", method, route);
-        printf("%s", request);
-        free(request);
 
-        char fileURL[100];
-        getFileURL(route, fileURL);
+        char *raw = (char *) calloc(SIZE + 1, sizeof(char));
+        read(clientSocket, raw, SIZE);
+
+        request_t req;
+        if (parse_request(raw, &req) != 0) {
+            const char response[] = "HTTP/1.1 400 Bad Request\r\n\n";
+            send(clientSocket, response, sizeof(response), 0);
+            close(clientSocket);
+            free(raw);
+            continue;
+        }
+
+        printf("%s %s\n", req.method, req.path);
+
+        char fileURL[300];
+        getFileURL(req.path, fileURL);
 
         FILE *file = fopen(fileURL, "r");
 
@@ -111,5 +116,7 @@ int main(void) {
             fclose(file);
             close(clientSocket);
         }
+
+        free(raw);
     }
 }
