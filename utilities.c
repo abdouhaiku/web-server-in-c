@@ -4,23 +4,27 @@
 
 #include "utilities.h"
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define SIZE 10000
 
-void getFileURL(char *route, char *fileURL)
-{
+
+void log_request(request_t *req, response_t *res, struct timespec begin_time, int client_fd);
+
+void getFileURL(char *route, char *fileURL) {
     char *question = strrchr(route, '?');
     if (question)
         *question = '\0';
 
-    if (route[strlen(route) - 1] == '/')
-    {
+    if (route[strlen(route) - 1] == '/') {
         strcat(route, "index.html");
     }
 
@@ -28,14 +32,12 @@ void getFileURL(char *route, char *fileURL)
     strcat(fileURL, route);
 
     const char *dot = strrchr(fileURL, '.');
-    if (!dot || dot == fileURL)
-    {
+    if (!dot || dot == fileURL) {
         strcat(fileURL, ".html");
     }
 }
 
-void getMimeType(char *file, char *mime)
-{
+void getMimeType(char *file, char *mime) {
     const char *dot = strrchr(file, '.');
 
     if (dot == NULL)
@@ -64,8 +66,7 @@ void getMimeType(char *file, char *mime)
 }
 
 
-int parse_request(char *raw, request_t *req)
-{
+int parse_request(char *raw, request_t *req) {
     memset(req, 0, sizeof(*req));
 
     char *line_end = strstr(raw, "\r\n");
@@ -78,15 +79,13 @@ int parse_request(char *raw, request_t *req)
     char *cursor = line_end + 2;
 
     // Header lines, terminated by a blank line ("\r\n\r\n")
-    while (cursor[0] != '\r' || cursor[1] != '\n')
-    {
+    while (cursor[0] != '\r' || cursor[1] != '\n') {
         char *next_line = strstr(cursor, "\r\n");
         if (!next_line)
             return -1;
 
         char *colon = memchr(cursor, ':', next_line - cursor);
-        if (colon && req->header_count < 32)
-        {
+        if (colon && req->header_count < 32) {
             header_t *h = &req->headers[req->header_count];
 
             size_t name_len = colon - cursor;
@@ -115,8 +114,8 @@ int parse_request(char *raw, request_t *req)
     return 0;
 }
 
-char* build_headers(response_t *response) {
-    char* buffer = malloc(1000 * sizeof(char));
+char *build_headers(response_t *response) {
+    char *buffer = malloc(1000 * sizeof(char));
     char status_line[100];
     sprintf(status_line, "HTTP/1.1 %d %s\r\n", response->statusCode, response->status_text);
     strcpy(buffer, status_line);
@@ -128,7 +127,7 @@ char* build_headers(response_t *response) {
     strcat(buffer, content_length);
     char date[100];
     getTimeString(date);
-    strcat(buffer,date);
+    strcat(buffer, date);
     // Add connection:close header
     strcat(buffer, "Connection:close\r\n");
     strcat(buffer, "\r\n\r\n");
@@ -145,39 +144,32 @@ Date: Mon, 14 Jul 2026 10:00:00 GMT\r\n
 */
 
 void send_response(int clientSocket, response_t *response) {
-    char* headers = build_headers(response);
+    char *headers = build_headers(response);
     int header_size = strlen(headers);
     char *responseBuffer = malloc(strlen(headers) + response->body_length);
     memcpy(responseBuffer, headers, header_size);
     free(headers);
     // pointer arithmetic to point to the begining to the position of the resource
-    char* bodyBuffer = responseBuffer + header_size;
+    char *bodyBuffer = responseBuffer + header_size;
     memcpy(bodyBuffer, response->body, response->body_length);
     send(clientSocket, responseBuffer, header_size + response->body_length, 0);
     free(responseBuffer);
 }
 
 
-
-void getTimeString(char* timeBuff) {
+void getTimeString(char *timeBuff) {
     const time_t t = time(NULL);
     //convert time to local structure
     struct tm tm_info_storage;
     const struct tm *tm_info = localtime_r(&t, &tm_info_storage);
-
-    //print the formatted string in timebuff
-    printf("Current Date and Time: %02d/%02d/%04d %02d:%02d:%02d\n",
-           tm_info->tm_mday, tm_info->tm_mon + 1, tm_info->tm_year + 1900,
-           tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
-
-    sprintf(timeBuff,"Date: %02d/%02d/%04d %02d:%02d:%02d",
-           tm_info->tm_mday, tm_info->tm_mon + 1, tm_info->tm_year + 1900,
-           tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
-
+    sprintf(timeBuff, "Date: %02d/%02d/%04d %02d:%02d:%02d",
+            tm_info->tm_mday, tm_info->tm_mon + 1, tm_info->tm_year + 1900,
+            tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
 }
 
-
 void handle_client(int client_fd) {
+    struct timespec begin_time;
+    clock_gettime(CLOCK_MONOTONIC, &begin_time);
     char *raw = (char *) calloc(SIZE + 1, sizeof(char));
     read(client_fd, raw, SIZE);
 
@@ -186,7 +178,7 @@ void handle_client(int client_fd) {
         char error_text[] = "Error while processing your request";
         size_t body_length = strlen(error_text);
         response_t response = {
-            404, "Bad Request", "text/html",error_text, body_length
+            404, "Bad Request", "text/html", error_text, body_length
         };
         send_response(client_fd, &response);
         close(client_fd);
@@ -206,7 +198,7 @@ void handle_client(int client_fd) {
         char error_text[] = "Error while processing your request";
         int body_length = strlen(error_text);
         response_t response = {
-            404, "Not found", "text/html",error_text, body_length
+            404, "Not found", "text/html", error_text, body_length
         };
         send_response(client_fd, &response);
         close(client_fd);
@@ -228,14 +220,39 @@ void handle_client(int client_fd) {
         response.status_text = "OK";
         send_response(client_fd, &response);
         free(response.body);
+        log_request(&req, &response, begin_time, client_fd);
         fclose(file);
     }
 
     free(raw);
 }
+
 void *handle_client_thread(void *arg) {
-    int client_fd = *(int*)arg;
+    int client_fd = *(int *) arg;
     free(arg);
     handle_client(client_fd);
     return NULL;
+}
+
+
+void log_request(request_t *req, response_t *res, struct timespec begin_time, int client_fd) {
+    struct timespec end_time;
+    clock_gettime(CLOCK_MONOTONIC, &end_time);
+    long total_ns = (end_time.tv_sec - begin_time.tv_sec) * 1000000000L
+                    + (end_time.tv_nsec - begin_time.tv_nsec);
+
+    char timeBuffer[100];
+    getTimeString(timeBuffer);
+
+    struct sockaddr_in local_addr;
+    socklen_t addr_len = sizeof(local_addr);
+    char serverAddress[INET_ADDRSTRLEN] = "unknown";
+    if (getsockname(client_fd, (struct sockaddr *) &local_addr, &addr_len) == 0) {
+        inet_ntop(AF_INET, &local_addr.sin_addr, serverAddress, sizeof(serverAddress));
+    }
+
+    pthread_t tid = pthread_self();
+
+    printf("%s thread=%lu ip=%s %s %s %d %ldns\n", timeBuffer, (unsigned long) tid, serverAddress,
+           req->method, req->path, res->statusCode, total_ns);
 }

@@ -49,3 +49,4 @@ Makefile
 
 # OS
 .DS_Store
+/tests /
