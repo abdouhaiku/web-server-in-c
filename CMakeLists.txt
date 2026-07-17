@@ -6,4 +6,8 @@ set(CMAKE_CXX_STANDARD 14)
 
 add_executable(web_server webserver.c
         utilities.h
-        utilities.c)
+        utilities.c
+        server_config.h
+        server_config.c)
+
+add_executable(test test.c)
