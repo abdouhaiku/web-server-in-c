@@ -14,6 +14,7 @@
 #include <signal.h> // signal handling
 #include <sys/errno.h>
 #include <pthread.h>
+#include "application_routes.h"
 
 
 #include "router.h"
@@ -36,6 +37,7 @@ int main(void) {
     }
 
     router_t router = {0};
+    router_add(&router, "GET", "/dummy", get_dummy_json);
 
     while (1) {
         // TODO 1 : Wrap all of this in a function that can be called by a thread
