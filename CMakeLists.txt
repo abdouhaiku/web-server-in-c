@@ -8,6 +8,8 @@ add_executable(web_server webserver.c
         utilities.h
         utilities.c
         server_config.h
-        server_config.c)
+        server_config.c
+        router.h
+        router.c)
 
 add_executable(test test.c)

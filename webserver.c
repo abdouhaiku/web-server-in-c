@@ -16,6 +16,7 @@
 #include <pthread.h>
 
 
+#include "router.h"
 #include "server_config.h"
 #include "utilities.h"
 
@@ -34,6 +35,7 @@ int main(void) {
         return 1;
     }
 
+    router_t router = {0};
 
     while (1) {
         // TODO 1 : Wrap all of this in a function that can be called by a thread
@@ -46,7 +48,8 @@ int main(void) {
         pthread_t thread;
         int *client_ptr = malloc(sizeof(int));
         *client_ptr = clientSocket;
-        int pthread_ws = pthread_create(&thread, NULL, handle_client_thread, client_ptr);
+        client_ctx_t ctx = {*client_ptr, &router};
+        int pthread_ws = pthread_create(&thread, NULL, handle_client_thread, &ctx);
         if (pthread_ws != 0) {
             fprintf(stderr, "Cannot create thread: %s\n", strerror(pthread_ws));
             continue;

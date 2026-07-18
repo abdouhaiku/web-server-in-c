@@ -5,6 +5,9 @@
 #ifndef WEB_SERVER_IN_C_UTILITIES_H
 #define WEB_SERVER_IN_C_UTILITIES_H
 #include <sys/_types/_size_t.h>
+typedef struct router router_t;
+typedef struct request request_t;
+typedef struct response response_t;
 
 void getFileURL(char*, char*);
 void getMimeType(char*, char*);
@@ -15,22 +18,27 @@ typedef struct {
     char value[256];
 } header_t;
 
-typedef struct {
+struct request {
     char method[8];
     char path[256];
     char version[16];
     header_t headers[32];
     int header_count;
     char *body; // points inside the raw request buffer passed to parse_request
-} request_t;
+};
 
-typedef struct {
+struct response{
     int statusCode;
     char *status_text;
     char *content_type;
     char *body;
     size_t body_length;
-} response_t;
+};
+
+typedef struct {
+    int client_fd;
+    router_t *router;
+} client_ctx_t;
 
 // Parses a raw, null-terminated HTTP request into req. Returns 0 on success,
 // -1 if the request line or headers are malformed. req->body points into

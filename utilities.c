@@ -3,7 +3,9 @@
 //
 
 #include "utilities.h"
+#include "router.h"
 
+#include <math.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +17,11 @@
 #include <arpa/inet.h>
 
 #define SIZE 10000
+
+typedef struct router router_t;
+typedef struct request request_t;
+typedef struct response response_t;
+
 
 
 void log_request(request_t *req, response_t *res, struct timespec begin_time, int client_fd);
@@ -167,70 +174,83 @@ void getTimeString(char *timeBuff) {
             tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec);
 }
 
-void handle_client(int client_fd) {
-    struct timespec begin_time;
-    clock_gettime(CLOCK_MONOTONIC, &begin_time);
-    char *raw = (char *) calloc(SIZE + 1, sizeof(char));
-    read(client_fd, raw, SIZE);
-
-    request_t req;
-    if (parse_request(raw, &req) != 0) {
-        char error_text[] = "Error while processing your request";
-        size_t body_length = strlen(error_text);
-        response_t response = {
-            404, "Bad Request", "text/html", error_text, body_length
-        };
-        send_response(client_fd, &response);
-        close(client_fd);
-        free(raw);
-        fprintf(stderr, "Malformed request from client %d\n", client_fd);
-        return;
-    }
-
-    printf("%s %s\n", req.method, req.path);
-
+void handle_static_file(request_t *req, response_t *res) {
     char fileURL[300];
-    getFileURL(req.path, fileURL);
+    getFileURL(req->path, fileURL);
 
     FILE *file = fopen(fileURL, "r");
 
     if (!file) {
         char error_text[] = "Error while processing your request";
-        int body_length = strlen(error_text);
-        response_t response = {
-            404, "Not found", "text/html", error_text, body_length
-        };
-        send_response(client_fd, &response);
-        close(client_fd);
+        res->statusCode = 404;
+        res->status_text = "Not found";
+        res->content_type = "text/html";
+        res->body = malloc(strlen(error_text));
+        res->body_length = strlen(error_text);
+        return;
     } else {
-        response_t response;
         char mimeType[32];
         getMimeType(fileURL, mimeType);
-        response.content_type = mimeType;
+        res->content_type = mimeType;
         // Calculate the size of the file
         fseek(file, 0, SEEK_END);
         long fsize = ftell(file);
         // Equivalent to fseek(stream, 0L, SEEK_SET)
         rewind(file);
-        response.body_length = fsize;
+        res->body_length = fsize;
         // Read content of the file
-        response.body = malloc(response.body_length * sizeof(char));
-        fread(response.body, response.body_length, 1, file);
-        response.statusCode = 200;
-        response.status_text = "OK";
-        send_response(client_fd, &response);
-        free(response.body);
-        log_request(&req, &response, begin_time, client_fd);
+        res->body = malloc(res->body_length * sizeof(char));
+        fread(res->body, res->body_length, 1, file);
+        res->statusCode = 200;
+        res->status_text = "OK";
         fclose(file);
     }
+}
 
+void handle_client(client_ctx_t ctx) {
+    struct timespec begin_time;
+    clock_gettime(CLOCK_MONOTONIC, &begin_time);
+    char *raw = (char *) calloc(SIZE + 1, sizeof(char));
+    read(ctx.client_fd, raw, SIZE);
+
+    request_t req;
+    if (parse_request(raw, &req) != 0) {
+        //TODO: refactor to a send_404_error()
+        char error_text[] = "Error while processing your request";
+        size_t body_length = strlen(error_text);
+        response_t response = {
+            404, "Bad Request", "text/html", error_text, body_length
+        };
+        send_response(ctx.client_fd, &response);
+        close(ctx.client_fd);
+        free(raw);
+        fprintf(stderr, "Malformed request from client %d\n", ctx.client_fd);
+        return;
+    }
+
+    printf("%s %s\n", req.method, req.path);
+
+    // TODO-1: refactor with route handling
+    handler_fn h = router_match(ctx.router, &req);
+    response_t response = {0};
+    if (h) {
+        h(&req, &response);
+    }
+    else {
+        handle_static_file(&req, &response);
+    }
+    send_response(ctx.client_fd, &response);
+    log_request(&req, &response, begin_time, ctx.client_fd);
+    free(response.body);
+    close(ctx.client_fd);
+    //END TODO-1
     free(raw);
 }
 
 void *handle_client_thread(void *arg) {
-    int client_fd = *(int *) arg;
-    free(arg);
-    handle_client(client_fd);
+    client_ctx_t ctx = *(client_ctx_t*) arg;
+    //free(arg);
+    handle_client(ctx);
     return NULL;
 }
 
