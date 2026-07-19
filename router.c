@@ -11,7 +11,7 @@
 int router_add(router_t *router, const char* method, const char* path, handler_fn handler) {
     if (router->count < MAX_ROUTES) {
         route_t *new_route = &router->routes[router->count];
-        if (strlen(method) >= sizeof(new_route->method || strlen(path) >= sizeof(new_route->path))) {
+        if (strlen(method) >= sizeof(new_route->method) || strlen(path) >= sizeof(new_route->path)) {
             fprintf(stderr, "route method/path too long: %s %s\n", method, path);
             return 1;
         }
@@ -32,7 +32,7 @@ int router_add(router_t *router, const char* method, const char* path, handler_f
 
 handler_fn router_match(router_t *router, request_t *req) {
     for (int i=0; i<router->count; i++) {
-        if (strcmp(router->routes[i].path, req->path) == 0) {
+        if (strcmp(router->routes[i].path, req->path) == 0 && strcmp(req->method, router->routes[i].method) == 0) {
             return router->routes[i].handler;
         }
     }
