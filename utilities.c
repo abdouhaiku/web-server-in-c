@@ -23,18 +23,12 @@ typedef struct request request_t;
 typedef struct response response_t;
 
 
-
 void log_request(request_t *req, response_t *res, struct timespec begin_time, int client_fd);
 
 void getFileURL(char *route, char *fileURL) {
-    char *question = strrchr(route, '?');
-    if (question)
-        *question = '\0';
-
     if (route[strlen(route) - 1] == '/') {
         strcat(route, "index.html");
     }
-
     strcpy(fileURL, "resource/assets");
     strcat(fileURL, route);
 
@@ -83,6 +77,36 @@ int parse_request(char *raw, request_t *req) {
     if (sscanf(raw, "%7s %255s %15s", req->method, req->path, req->version) != 3)
         return -1;
 
+    char *query_start = strchr(req->path, '?');
+    if (query_start) {
+        *query_start = '\0';
+        query_start++;
+        while (query_start) {
+
+            char *next_param_start = strchr(query_start, '&');
+            char *param_end = next_param_start ? next_param_start : query_start + strlen(query_start);
+
+            char *equal_sign = memchr(query_start, '=', param_end - query_start);
+            if (equal_sign && req->query_count < 32) {
+                size_t key_len = equal_sign - query_start;
+                if (key_len >= sizeof(req->query_params[0].key))
+                    key_len = sizeof(req->query_params[0].key) - 1;
+                memcpy(req->query_params[req->query_count].key, query_start, key_len);
+                req->query_params[req->query_count].key[key_len] = '\0';
+
+                char *value_start = equal_sign + 1;
+                size_t value_len = param_end - value_start;
+                if (value_len >= sizeof(req->query_params[0].value))
+                    value_len = sizeof(req->query_params[0].value) - 1;
+                memcpy(req->query_params[req->query_count].value, value_start, value_len);
+                req->query_params[req->query_count].value[value_len] = '\0';
+                req->query_count++;
+            }
+
+            query_start = next_param_start ? next_param_start + 1 : NULL;
+        }
+    }
+
     char *cursor = line_end + 2;
 
     // Header lines, terminated by a blank line ("\r\n\r\n")
@@ -118,6 +142,7 @@ int parse_request(char *raw, request_t *req) {
     }
 
     req->body = cursor + 2;
+
     return 0;
 }
 
@@ -136,7 +161,7 @@ char *build_headers(response_t *response) {
     getTimeString(date);
     strcat(buffer, date);
     // Add connection:close header
-    strcat(buffer, "Connection:close\r\n");
+    strcat(buffer, "Connection:close");
     strcat(buffer, "\r\n\r\n");
     return buffer;
 }
@@ -184,7 +209,7 @@ void handle_static_file(request_t *req, response_t *res) {
         char error_text[] = "Error while processing your request";
         res->statusCode = 404;
         strcpy(res->status_text, "Not Found");
-        strcpy(res->content_type,"text/html");
+        strcpy(res->content_type, "text/html");
         res->body = malloc(strlen(error_text) + 1);
         strcpy(res->body, error_text);
         res->body_length = strlen(error_text);
@@ -236,8 +261,7 @@ void handle_client(client_ctx_t ctx) {
     response_t response = {0};
     if (h) {
         h(&req, &response);
-    }
-    else {
+    } else {
         handle_static_file(&req, &response);
     }
     send_response(ctx.client_fd, &response);
@@ -249,10 +273,10 @@ void handle_client(client_ctx_t ctx) {
 }
 
 void *handle_client_thread(void *arg) {
-    client_ctx_t *ctx = (client_ctx_t*) arg;
+    client_ctx_t *ctx = (client_ctx_t *) arg;
     //free(arg);
     handle_client(*ctx);
-    free(ctx); 
+    free(ctx);
     return NULL;
 }
 

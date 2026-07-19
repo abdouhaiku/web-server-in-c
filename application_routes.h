@@ -7,6 +7,8 @@
 
 #include "router.h"
 
-void get_dummy_json(request_t *req, response_t *res); 
+void get_dummy_json(request_t *req, response_t *res);
+
+void get_full_name(request_t *req, response_t *res);
 
 #endif //WEB_SERVER_IN_C_APPLICATION_ROUTES_H

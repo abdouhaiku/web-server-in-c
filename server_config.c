@@ -122,6 +122,12 @@ int create_server_socket(server_t* server) {
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     server->socket_fd = serverSocket;
 
+    int opt = 1;
+    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
+        perror("setsockopt(SO_REUSEADDR) failed");
+        return 1;
+    }
+
     //Bind and check
     if (bind(serverSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress)) < 0) {
         perror("Error: The server is not bound to the address");

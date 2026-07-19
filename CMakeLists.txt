@@ -14,4 +14,12 @@ add_executable(web_server webserver.c
         application_routes.h
         application_routes.c)
 
-add_executable(test test.c)
+add_executable(test test.c
+        utilities.h
+        utilities.c
+        server_config.h
+        server_config.c
+        router.h
+        router.c
+        application_routes.h
+        application_routes.c)

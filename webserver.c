@@ -38,6 +38,7 @@ int main(void) {
 
     router_t router = {0};
     router_add(&router, "GET", "/dummy", get_dummy_json);
+    router_add(&router, "GET", "/fullName", get_full_name);
 
     while (1) {
         // TODO 1 : Wrap all of this in a function that can be called by a thread
