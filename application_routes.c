@@ -15,9 +15,10 @@ void get_dummy_json(request_t *req, response_t *res) {
         perror("File is not found");
         char error_text[] = "Error while processing your request";
         res->statusCode = 404;
-        res->status_text = "Not found";
-        res->content_type = "text/html";
-        res->body = malloc(strlen(error_text));
+        strcpy(res->status_text ,"Not found");
+        strcpy(res->content_type, "text/html");
+        res->body = malloc(strlen(error_text) + 1);
+        strcpy(res->body, error_text);
         res->body_length = strlen(error_text);
 
         return;
@@ -26,7 +27,7 @@ void get_dummy_json(request_t *req, response_t *res) {
         // Calculate the size of the file
         char mimeType[32];
         getMimeType("resource/asssets/dummy.json", mimeType);
-        res->content_type = mimeType;
+        strcpy(res->content_type, mimeType);
         fseek(file, 0, SEEK_END);
         long fsize = ftell(file);
         rewind(file);
@@ -35,7 +36,7 @@ void get_dummy_json(request_t *req, response_t *res) {
         res->body = malloc(fsize + 1);
         fread(res->body, res->body_length, 1, file);
         res->statusCode = 200;
-        res->status_text = "OK";
+        strcpy(res->status_text, "OK");
         fclose(file);
 
     }

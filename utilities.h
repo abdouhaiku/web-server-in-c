@@ -29,8 +29,8 @@ struct request {
 
 struct response{
     int statusCode;
-    char *status_text;
-    char *content_type;
+    char status_text[32];
+    char content_type[32];
     char *body;
     size_t body_length;
 };

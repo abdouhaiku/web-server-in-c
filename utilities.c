@@ -183,15 +183,16 @@ void handle_static_file(request_t *req, response_t *res) {
     if (!file) {
         char error_text[] = "Error while processing your request";
         res->statusCode = 404;
-        res->status_text = "Not found";
-        res->content_type = "text/html";
-        res->body = malloc(strlen(error_text));
+        strcpy(res->status_text, "Not Found");
+        strcpy(res->content_type,"text/html");
+        res->body = malloc(strlen(error_text) + 1);
+        strcpy(res->body, error_text);
         res->body_length = strlen(error_text);
         return;
     } else {
         char mimeType[32];
         getMimeType(fileURL, mimeType);
-        res->content_type = mimeType;
+        strcpy(res->content_type, mimeType);
         // Calculate the size of the file
         fseek(file, 0, SEEK_END);
         long fsize = ftell(file);
@@ -202,7 +203,7 @@ void handle_static_file(request_t *req, response_t *res) {
         res->body = malloc(res->body_length * sizeof(char));
         fread(res->body, res->body_length, 1, file);
         res->statusCode = 200;
-        res->status_text = "OK";
+        strcpy(res->status_text, "OK");
         fclose(file);
     }
 }
@@ -248,9 +249,10 @@ void handle_client(client_ctx_t ctx) {
 }
 
 void *handle_client_thread(void *arg) {
-    client_ctx_t ctx = *(client_ctx_t*) arg;
+    client_ctx_t *ctx = (client_ctx_t*) arg;
     //free(arg);
-    handle_client(ctx);
+    handle_client(*ctx);
+    free(ctx); 
     return NULL;
 }
 

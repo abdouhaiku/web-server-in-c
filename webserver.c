@@ -46,12 +46,12 @@ int main(void) {
             perror("Can't establish connection with the client");
             continue;
         }
-
         pthread_t thread;
-        int *client_ptr = malloc(sizeof(int));
-        *client_ptr = clientSocket;
-        client_ctx_t ctx = {*client_ptr, &router};
-        int pthread_ws = pthread_create(&thread, NULL, handle_client_thread, &ctx);
+        //TODO : fix the dangling pointer by doing a malloc
+        client_ctx_t *ctx = (client_ctx_t *) malloc(sizeof(client_ctx_t));
+        ctx->client_fd = clientSocket;
+        ctx->router = &router;
+        int pthread_ws = pthread_create(&thread, NULL, handle_client_thread, ctx);
         if (pthread_ws != 0) {
             fprintf(stderr, "Cannot create thread: %s\n", strerror(pthread_ws));
             continue;
