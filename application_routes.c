@@ -79,3 +79,15 @@ void get_full_name(request_t *req, response_t *res) {
 
 }
 
+
+void echo_post_body(request_t *req, response_t *res) {
+    char body[1000];
+    snprintf(body, sizeof(body), "Echoing the body send through your request: \n %s\n", req->body );
+    res->body_length = strlen(body);
+    res->body = malloc(strlen(body) + 1);
+    strcpy(res->body, body);
+    res->statusCode = 200;
+    strcpy(res->status_text, "OK");
+    strcpy(res->content_type, "text/html");
+}
+
