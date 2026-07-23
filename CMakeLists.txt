@@ -3,25 +3,11 @@ project(web_server_in_c)
 
 set(CMAKE_CXX_STANDARD 14)
 
-
-add_executable(web_server webserver.c
-        utilities.h
-        utilities.c
-        server_config.h
-        server_config.c
-        router.h
-        router.c
-        application_routes.h
-        application_routes.c
-        queue.h
-        queue.c)
-
-add_executable(test test.c
-        utilities.h
-        utilities.c
-        server_config.h
-        server_config.c
-        router.h
-        router.c
-        application_routes.h
-        application_routes.c)
+add_executable(web_server
+        src/webserver.c
+        src/utilities.c
+        src/server_config.c
+        src/router.c
+        src/application_routes.c
+        src/queue.c)
+target_include_directories(web_server PRIVATE include)
