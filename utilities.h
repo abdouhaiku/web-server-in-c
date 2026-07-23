@@ -59,5 +59,7 @@ int parse_request(char *raw, request_t *req);
 
 void send_response(int client_socket, response_t *response);
 
-void *handle_client_thread(void *arg);
+void *handle_client_thread(client_ctx_t ctx);
+
+void *worker_loop(void *arg);
 #endif //WEB_SERVER_IN_C_UTILITIES_H

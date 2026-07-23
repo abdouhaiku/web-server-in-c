@@ -15,6 +15,7 @@
 #include <sys/errno.h>
 #include <pthread.h>
 #include "application_routes.h"
+#include "queue.h"
 
 
 #include "router.h"
@@ -23,7 +24,6 @@
 
 #define PORT 8081
 #define BACKLOG 10
-
 
 int main(void) {
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -35,11 +35,23 @@ int main(void) {
         printf("error in starting up the server");
         return 1;
     }
+    pthread_t workers[server.config.number_worker_threads];
 
     router_t router = {0};
     router_add(&router, "GET", "/dummy", get_dummy_json);
     router_add(&router, "GET", "/fullName", get_full_name);
     router_add(&router, "POST", "/echo", echo_post_body);
+
+    conn_queue_t queue;
+    queue_init(&queue, server.config.maximum_of_connections);
+    // spawn 4 worker threads
+    for (int i=0; i<server.config.number_worker_threads; i++) {
+        int pthread_ws = pthread_create(&workers[i], NULL, worker_loop, &queue);
+        if (pthread_ws != 0) {
+            fprintf(stderr, "Cannot create thread: %s\n", strerror(pthread_ws));
+        }
+    }
+
 
     while (1) {
         // TODO 1 : Wrap all of this in a function that can be called by a thread
@@ -48,16 +60,9 @@ int main(void) {
             perror("Can't establish connection with the client");
             continue;
         }
-        pthread_t thread;
-        //TODO : fix the dangling pointer by doing a malloc
-        client_ctx_t *ctx = (client_ctx_t *) malloc(sizeof(client_ctx_t));
-        ctx->client_fd = clientSocket;
-        ctx->router = &router;
-        int pthread_ws = pthread_create(&thread, NULL, handle_client_thread, ctx);
-        if (pthread_ws != 0) {
-            fprintf(stderr, "Cannot create thread: %s\n", strerror(pthread_ws));
-            continue;
-        }
-        pthread_detach(thread);
+        client_ctx_t ctx = {
+            clientSocket, &router
+        };
+        queue_push(&queue, ctx);
     }
 }

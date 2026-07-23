@@ -8,6 +8,8 @@ typedef struct {
     int port;
     int backlog;
     char bind_address[32];
+    int number_worker_threads;
+    int maximum_of_connections;
 } server_config_t;
 
 typedef struct {

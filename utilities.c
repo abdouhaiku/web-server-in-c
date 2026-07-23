@@ -16,6 +16,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "queue.h"
+
 #define SIZE 10000
 
 typedef struct router router_t;
@@ -272,12 +274,20 @@ void handle_client(client_ctx_t ctx) {
     free(raw);
 }
 
-void *handle_client_thread(void *arg) {
-    client_ctx_t *ctx = (client_ctx_t *) arg;
-    //free(arg);
-    handle_client(*ctx);
-    free(ctx);
+void *handle_client_thread(client_ctx_t ctx) {
+    handle_client(ctx);
     return NULL;
+}
+
+void *worker_loop(void *arg) {
+
+    conn_queue_t *conn_queue = (conn_queue_t *) arg;
+    while (1) {
+        //queue_pop is blocking and will suspend thread if no connection is available
+        client_ctx_t ctx = queue_pop(conn_queue);
+        handle_client_thread(ctx);
+    }
+
 }
 
 

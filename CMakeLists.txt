@@ -12,7 +12,9 @@ add_executable(web_server webserver.c
         router.h
         router.c
         application_routes.h
-        application_routes.c)
+        application_routes.c
+        queue.h
+        queue.c)
 
 add_executable(test test.c
         utilities.h

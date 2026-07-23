@@ -94,6 +94,10 @@ int parse_config_ini(char* path, server_config_t *config) {
                     config->backlog = atoi(value);
                 else if (strcmp(key, "bind_address") == 0)
                     strcpy(config->bind_address, value);
+                else if (strcmp(key,"number_worker_threads") == 0)
+                    config->number_worker_threads = atoi(value);
+                else if (strcmp(key, "maximum_of_connections") == 0)
+                    config->maximum_of_connections = atoi(value); 
             }
             cursor = next_line + 1;
         }
