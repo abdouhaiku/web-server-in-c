@@ -63,3 +63,12 @@ cmake --build build
 ```
 
 Run it from the project root (or copy `config.ini` and `resource/` alongside the binary),  both are read via relative paths at startup. The server listens on `http://<bind_address>:<port>/` as configured in `config.ini` (`http://127.0.0.1:8081/` by default).
+
+## Possible improvements
+
+Not implemented yet, in no particular order:
+
+- **HTTPS** : TLS termination (e.g. via OpenSSL) so the server can accept `https://` connections instead of plaintext-only HTTP.
+- **Request timeout handling** : bound how long a worker will wait on a slow/stalled client (e.g. during `read()`), so one misbehaving connection can't tie up a worker thread indefinitely.
+- **A small middleware system** : a way to run shared logic (logging, auth, headers) before/after route handlers without every handler reimplementing it.
+- **Rate limiting** : cap how many requests a client can make in a given time window, to protect the server from being overwhelmed by a single source.
